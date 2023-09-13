@@ -55,6 +55,10 @@ module.exports.ConnectAndSendMessage = function (data) {
             if (_.isObject(writeData)) {
               writeData = JSON.stringify(writeData)
             }
+
+            if(!_.isString(writeData)){
+              writeData = String(writeData)
+            }
             break;
           case 'xml':
             writeData = new xml2js.Builder().buildObject(msgContent);
