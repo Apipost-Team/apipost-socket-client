@@ -1,0 +1,32 @@
+{
+  "name": "apipost-socket-client",
+  "version": "1.0.0",
+  "description": "Apipost-json-based socket client.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Apipost-Team/apipost-socket-client.git"
+  },
+  "keywords": [
+    "tcp",
+    "udp",
+    "socket"
+  ],
+  "author": "apipost-lab001 <admin@apipost.cn> (https://github.com/Apipost-Team)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Apipost-Team/apipost-socket-client/issues"
+  },
+  "homepage": "https://github.com/Apipost-Team/apipost-socket-client#readme",
+  "dependencies": {
+    "json5": "^2.2.1",
+    "lodash": "^4.17.21",
+    "iso_8583": "^2.6.7",
+    "net": "^1.0.2",
+    "xml2js": "^0.6.2",
+    "buffer-concat": "^1.0.0"
+  }
+}
