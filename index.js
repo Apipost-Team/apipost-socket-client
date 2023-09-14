@@ -1,44 +1,56 @@
-const _ = require('lodash'),
-  net = require('net'),
-  BufferConcat = require('buffer-concat'),
-  Iso_8583 = require('iso_8583'),
-  xml2js = require('xml2js');
+const _ = require("lodash"),
+  net = require("net"),
+  BufferConcat = require("buffer-concat"),
+  Iso_8583 = require("iso_8583"),
+  xml2js = require("xml2js");
 
 module.exports.ConnectAndSendMessage = function (data) {
   const { option, test_events } = data;
 
   return new Promise((resolve, reject) => {
-    if (!_.isObject(option) || !_.isArray(test_events) || !_.isObject(_.get(test_events[0], 'data'))) {
+    if (
+      !_.isObject(option) ||
+      !_.isArray(test_events) ||
+      !_.isObject(_.get(test_events[0], "data"))
+    ) {
       reject({
-        target_id: '',
-        status: 'error',
-        message: '错误的请求参数',
+        target_id: "",
+        status: "error",
+        message: "错误的请求参数",
         request: {},
         response: {},
         assert: [],
       });
     } else {
       // 当前接口信息
-      const targetItem = _.get(test_events[0], 'data');
+      const targetItem = _.get(test_events[0], "data");
 
       // 获取tcp server 信息
-      const serverHost = (([host, port = "110"]) => ({ host, port: Number(port) }))(
+      const serverHost = (([host, port = "110"]) => ({
+        host,
+        port: Number(port),
+      }))(
         _.chain(option?.collection)
-          .find(item => item.target_id === targetItem?.parent_id)
-          .get('url', '127.0.0.1:110')
-          .split(':')
+          .find((item) => item.target_id === targetItem?.parent_id)
+          .get("url", "127.0.0.1:110")
+          .split(":")
           .value()
       );
 
       // 要发送的消息信息
-      const msgType = _.get(targetItem, 'request.body.type') ? _.get(targetItem, 'request.body.type') : 'json';
-      const msgContent = _.get(targetItem, `request.body.${msgType}`);
+      const msgType = _.get(targetItem, "request.body.mode")
+        ? _.get(targetItem, "request.body.mode")
+        : "json";
+      const msgContent =
+        msgType === "iso8583"
+          ? _.get(targetItem, `request.body.parameter`)
+          : _.get(targetItem, `request.body.raw`);
 
       _.assign(serverHost, {
         message: {
           type: msgType,
-          content: msgContent
-        }
+          content: msgContent,
+        },
       });
 
       // 获取连接客户端
@@ -46,35 +58,34 @@ module.exports.ConnectAndSendMessage = function (data) {
 
       // 连接并发送
       socketClient.connect(serverHost.port, serverHost.host, () => {
-        let writeData = '';
+        let writeData = "";
 
         switch (msgType) {
-          case 'json':
-            writeData = _.get(msgContent, 'raw');
-
+          case "json":
+            writeData = msgContent;
             if (_.isObject(writeData)) {
-              writeData = JSON.stringify(writeData)
+              writeData = JSON.stringify(writeData);
             }
 
-            if(!_.isString(writeData)){
-              writeData = String(writeData)
+            if (!_.isString(writeData)) {
+              writeData = String(writeData);
             }
             break;
-          case 'xml':
+          case "xml":
             writeData = new xml2js.Builder().buildObject(msgContent);
             break;
-          case 'iso8583':
+          case "iso8583":
             const isoMsg = {};
 
             if (_.isArray(msgContent)) {
               _.forEach(msgContent, (item) => {
-                isoMsg[String(item?.field)] = item?.value
-              })
+                isoMsg[String(item?.field)] = item?.value;
+              });
             }
 
             writeData = new Iso_8583(isoMsg).getBufferMessage();
             break;
-          case 'raw':
+          case "raw":
           default:
             writeData = msgContent;
             break;
@@ -86,7 +97,7 @@ module.exports.ConnectAndSendMessage = function (data) {
         } catch (err) {
           reject({
             target_id: targetItem?.target_id,
-            status: 'error',
+            status: "error",
             message: String(err),
             request: serverHost,
             response: {},
@@ -96,37 +107,37 @@ module.exports.ConnectAndSendMessage = function (data) {
       });
 
       // 收到反馈数据
-      socketClient.on('data', async (response) => {
+      socketClient.on("data", async (response) => {
         const resLength = _.size(response);
-        response = String(response)
+        response = String(response);
 
         try {
           switch (msgType) {
-            case 'json':
-              response = JSON.parse(response);
-              break;
-            case 'xml':
+            // case "json":
+            //   response = JSON.parse(response);
+            //   break;
+            case "xml":
               xml2js.parseString(data, async (err, result) => {
                 if (!err) {
-                  response = result
+                  response = result;
                 }
               });
               break;
-            case 'iso8583':
+            case "iso8583":
               response = new Iso_8583(response);
               break;
           }
 
           resolve({
             target_id: targetItem?.target_id,
-            status: 'success',
-            message: 'success',
+            status: "success",
+            message: "success",
             request: serverHost,
             response: {
               raw: response,
-              length: resLength
+              length: resLength,
             },
-            assert: []
+            assert: [],
             // assert: [
             //   {
             //     "status": "success",
@@ -137,7 +148,7 @@ module.exports.ConnectAndSendMessage = function (data) {
         } catch (err) {
           reject({
             target_id: targetItem?.target_id,
-            status: 'error',
+            status: "error",
             message: String(err),
             request: serverHost,
             response: {},
@@ -148,19 +159,19 @@ module.exports.ConnectAndSendMessage = function (data) {
         }
       });
 
-      socketClient.on('close', () => { });
+      socketClient.on("close", () => {});
 
       // 错误回调
-      socketClient.on('error', (err) => {
+      socketClient.on("error", (err) => {
         reject({
           target_id: targetItem?.target_id,
-          status: 'error',
+          status: "error",
           message: String(err),
           request: serverHost,
           response: {},
-          assert: []
+          assert: [],
         });
       });
     }
-  })
+  });
 };
