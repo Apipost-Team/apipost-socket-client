@@ -4,8 +4,9 @@ const _ = require("lodash"),
   { parseString } = require('xml2js'),
   chai = require('chai'),
   jsonpath = require('jsonpath'),
+  xpath = require('xpath'),// for 7.2.3
   x2js = require('x2js');
-  
+
 module.exports.ConnectAndSendMessage = function (data) {
   const { option, test_events } = data;
 
@@ -289,6 +290,11 @@ module.exports.ConnectAndSendMessage = function (data) {
 
                           break;
                         case 'responseXml':
+                          try {
+                            _expect_data = xpath.select(String(item?.data?.expression?.path), new dom().parseFromString(String(response), 'text/xml'));
+                          } catch (e) { }
+                          
+                          break;
                         case 'responseText':
                           _expect_data = response;
                           break;
