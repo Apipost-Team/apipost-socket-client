@@ -2,6 +2,8 @@ const _ = require("lodash"),
   net = require("net"),
   Iso_8583 = require("iso_8583"),
   { parseString } = require('xml2js'),
+  chai = require('chai'),
+  jsonpath = require('jsonpath'),
   x2js = require('x2js');
 
 module.exports.ConnectAndSendMessage = function (data) {
@@ -193,6 +195,135 @@ module.exports.ConnectAndSendMessage = function (data) {
             }
           });
 
+          // 断言处理
+          let _assert_script = [];
+          _.forEach(_.get(targetItem, `request.post_tasks`), function (item) {
+            if (_.isObject(item)) {
+              switch (_.toLower(item.type)) {
+                case 'socketassert':
+                  if (item.enabled > 0) {
+                    const ASSERT_TYPES = {
+                      responseJson: {
+                        value: 'pm.response.json()',
+                        title: 'Response JSON',
+                      },
+                      responseXml: {
+                        value: 'apt.response.text()',
+                        title: 'Response XML',
+                      },
+                      responseText: {
+                        value: 'apt.response.text()',
+                        title: 'Response Text',
+                      },
+                      responseSize: {
+                        value: 'pm.response.responseSize',
+                        title: '响应大小',
+                      }
+                    };
+
+                    const ASSERT_CONDITION = {
+                      eq: { type: 'eql', title: '等于' },
+                      uneq: { type: 'not.eql', title: '不等于' },
+                      lt: { type: 'below', title: '小于' },
+                      lte: { type: 'most', title: '小于或等于' },
+                      gt: { type: 'above', title: '大于' },
+                      gte: { type: 'least', title: '大于或等于' },
+                      includes: { type: 'include', title: '包含' },
+                      unincludes: { type: 'not.include', title: '不包含' },
+                      null: { type: 'be.empty', title: '等于空' },
+                      notnull: { type: 'not.be.empty', title: '不等于空' },
+                      exist: { type: 'exist', title: '存在' },
+                      notexist: { type: 'not.exist', title: '不存在' },
+                      regularmatch: { type: 'match', title: '正则匹配' },
+                      belongscollection: { type: 'oneOf', title: '属于集合' },
+                      notbelongscollection: { type: 'not.oneOf', title: '不属于集合' },
+                    }
+
+                    // 断言标题
+                    let _assert_title = `${ASSERT_TYPES[item?.data?.type]?.title}(${String(item?.data?.expression?.path)}) ${ASSERT_CONDITION[item?.data?.expression?.compareType]?.title} ${String(item?.data?.expression?.compareValue)}`;
+
+                    if (_.isEmpty(item?.data?.expression?.path)) {
+                      _assert_title = `${ASSERT_TYPES[item?.data?.type]?.title} ${ASSERT_CONDITION[item?.data?.expression?.compareType]?.title} ${String(item?.data?.expression?.compareValue)}`;
+                    }
+
+                    // 断言对比值
+                    let _assert_value = null;
+                    let _assert_func = _.identity;
+
+                    if (['null', 'notnull', 'exist', 'notexist'].indexOf(item?.data?.expression?.compareType) == -1) {
+                      if (['lt', 'lte', 'gt', 'gte'].indexOf(item?.data?.expression?.compareType) > -1) {
+                        _assert_func = Number;
+                        _assert_value = Number(item?.data?.expression?.compareValue);
+                      } else if (item?.data?.expression?.compareType == 'regularmatch') {
+                        _assert_value = item?.data?.expression?.compareValue;
+                      } else if (['belongscollection', 'notbelongscollection'].indexOf(item?.data?.expression?.compareType) > -1) {
+                        _assert_value = _.split(item?.data?.expression?.compareValue, ",").map(item => {
+                          let num = _.toNumber(item);
+                          return _.isNaN(num) ? `"${item}"` : num;
+                        });
+                      } else {
+                        _assert_func = String;
+                        _assert_value = item?.data?.expression?.compareValue;
+                      }
+                    }
+
+                    // 开始断言
+                    try {
+                      let _expect_data = '';
+                      let _assert_condition = String(ASSERT_CONDITION[item?.data?.expression?.compareType]?.type);
+
+                      switch (item?.data?.type) {
+                        case 'responseJson':
+                          let res_obj = {};
+                          if (_.isString(response)) {
+                            try {
+                              res_obj = JSON.parse(response);
+                            } catch (e) { }
+                          }
+
+                          if (_.isObject(response)) {
+                            res_obj = response;
+                          }
+
+                          _expect_data = _assert_func(jsonpath.value(res_obj, JSON.stringify(item?.data?.expression?.path)))
+                          break;
+                        case 'responseXml':
+                        case 'responseText':
+                          _expect_data = response;
+                          break;
+                        case 'responseSize':
+                          _expect_data = resLength;
+                          break;
+                      }
+                      
+                      let _chai_str = '';
+                      if (!_.isNull(_assert_value)) {
+                        _chai_str = `chai.expect(${JSON.stringify(_expect_data)}).to.${_assert_condition}(${JSON.stringify(_assert_value)})`;
+                      } else {
+                        _chai_str = `chai.expect(${JSON.stringify(_expect_data)}).to.${_assert_condition}`;
+                      }
+
+                      chai.expect(new Function('chai', _chai_str)(chai))
+
+                      _assert_script.push({
+                        "status": "success",
+                        "expect": _assert_title,
+                        "result": "成功"
+                      })
+                    } catch (e) {
+                      console.log(e)
+                      _assert_script.push({
+                        "status": "error",
+                        "expect": _assert_title,
+                        "result": "失败"
+                      })
+                    }
+                  }
+                  break;
+              }
+            }
+          });
+
           resolve({
             target_id: targetItem?.target_id,
             status: "success",
@@ -202,13 +333,7 @@ module.exports.ConnectAndSendMessage = function (data) {
               raw: response,
               length: resLength,
             },
-            assert: [],
-            // assert: [
-            //   {
-            //     "status": "success",
-            //     "expect": "响应码为 200",
-            //     "result": "成功"
-            //   }]
+            assert: _assert_script
           });
         } catch (err) {
           reject({
