@@ -1,8 +1,8 @@
 const _ = require("lodash"),
   net = require("net"),
-  BufferConcat = require("buffer-concat"),
   Iso_8583 = require("iso_8583"),
-  xml2js = require("xml2js");
+  { parseString } = require('xml2js'),
+  x2js = require('x2js');
 
 module.exports.ConnectAndSendMessage = function (data) {
   const { option, test_events } = data;
@@ -61,31 +61,19 @@ module.exports.ConnectAndSendMessage = function (data) {
         let writeData = "";
 
         switch (msgType) {
-          case "json":
-            writeData = msgContent;
-            if (_.isObject(writeData)) {
-              writeData = JSON.stringify(writeData);
-            }
-
-            if (!_.isString(writeData)) {
-              writeData = String(writeData);
-            }
-            break;
-          case "xml":
-            writeData = new xml2js.Builder().buildObject(msgContent);
-            break;
           case "iso8583":
-            const isoMsg = {};
+            try {
+              const isoMsg = {};
 
-            if (_.isArray(msgContent)) {
-              _.forEach(msgContent, (item) => {
-                isoMsg[String(item?.field)] = item?.value;
-              });
-            }
+              if (_.isArray(msgContent)) {
+                _.forEach(msgContent, (item) => {
+                  isoMsg[String(item?.field)] = item?.value;
+                });
+              }
 
-            writeData = new Iso_8583(isoMsg).getBufferMessage();
+              writeData = new Iso_8583(isoMsg).getBufferMessage();
+            } catch (e) { }
             break;
-          case "raw":
           default:
             writeData = msgContent;
             break;
@@ -93,6 +81,45 @@ module.exports.ConnectAndSendMessage = function (data) {
 
         // 写入数据
         try {
+          // 请求参数数据处理
+          _.forEach(_.get(targetItem, `request.configs.func.request`), function (item) {
+            switch (item?.id) {
+              case 'calcLengthToPacketHeader':
+                if (_.isString(writeData)) {
+                  writeData = _.join([_.take(_.padStart(_.size(writeData), Number(item?.option), 0), Number(item?.option)).join(''), writeData], '')
+                }
+                break;
+              case 'addCharToPacketEnd':
+                if (!_.isUndefined(item?.option)) {
+                  switch (item?.option) {
+                    case '\\n':
+                      writeData = _.join([writeData, "\n"], '')
+                      break;
+                    case '\\r':
+                      writeData = _.join([writeData, "\r"], '')
+                      break;
+                    case '\\t':
+                      writeData = _.join([writeData, "\t"], '')
+                      break;
+                    case '\\b':
+                      writeData = _.join([writeData, "\b"], '')
+                      break;
+                    case '\\f':
+                      writeData = _.join([writeData, "\f"], '')
+                      break;
+                    case '\\\\':
+                      writeData = _.join([writeData, "\\"], '')
+                      break;
+                    default:
+                      writeData = _.join([writeData, String(item?.option)], '')
+                      break;
+                  }
+                }
+
+                break;
+            }
+          });
+          console.log(writeData)
           socketClient.write(writeData);
         } catch (err) {
           reject({
@@ -113,20 +140,58 @@ module.exports.ConnectAndSendMessage = function (data) {
 
         try {
           switch (msgType) {
-            // case "json":
-            //   response = JSON.parse(response);
-            //   break;
-            case "xml":
-              xml2js.parseString(data, async (err, result) => {
-                if (!err) {
-                  response = result;
-                }
-              });
-              break;
             case "iso8583":
               response = new Iso_8583(response);
               break;
           }
+          // 响应参数数据处理
+          _.forEach(_.get(targetItem, `request.configs.func.response`), function (item) {
+            switch (item?.id) {
+              case 'removePacketHeader':
+                if (_.isString(response)) {
+                  response = _.slice(response, Number(item?.option)).join('')
+                }
+                break;
+              case 'removeWrapChar':
+                if (!_.isUndefined(item?.option) && _.isString(response)) {
+                  switch (item?.option) {
+                    case '\\n':
+                      response = _.trim(response, "\n")
+                      break;
+                    case '\\r':
+                      response = _.trim(response, "\r")
+                      break;
+                    case '\\t':
+                      response = _.trim(response, "\t")
+                      break;
+                    case '\\b':
+                      response = _.trim(response, "\b")
+                      break;
+                    case '\\f':
+                      response = _.trim(response, "\f")
+                      break;
+                    case '\\\\':
+                      response = _.trim(response, "\\")
+                      break;
+                    default:
+                      break;
+                  }
+                }
+
+                break;
+              case 'parseXmlToJson':
+                try {
+                  parseString(response, (error, result) => {
+                    if (!error) {
+                      try {
+                        response = (new x2js()).xml2js(response);
+                      } catch (err) { }
+                    }
+                  });
+                } catch (err) { }
+                break;
+            }
+          });
 
           resolve({
             target_id: targetItem?.target_id,
@@ -159,7 +224,7 @@ module.exports.ConnectAndSendMessage = function (data) {
         }
       });
 
-      socketClient.on("close", () => {});
+      socketClient.on("close", () => { });
 
       // 错误回调
       socketClient.on("error", (err) => {
