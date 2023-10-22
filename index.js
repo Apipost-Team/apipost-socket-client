@@ -5,7 +5,7 @@ const _ = require("lodash"),
   chai = require('chai'),
   jsonpath = require('jsonpath'),
   x2js = require('x2js');
-console.log(jsonpath.value({ aasasasa: '别此真情议同得' }, "$.aasasasa"), 77777)
+  
 module.exports.ConnectAndSendMessage = function (data) {
   const { option, test_events } = data;
 
