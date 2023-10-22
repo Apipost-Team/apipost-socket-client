@@ -121,7 +121,7 @@ module.exports.ConnectAndSendMessage = function (data) {
                 break;
             }
           });
-          console.log(writeData)
+
           socketClient.write(writeData);
         } catch (err) {
           reject({
@@ -137,9 +137,6 @@ module.exports.ConnectAndSendMessage = function (data) {
 
       // 收到反馈数据
       socketClient.on("data", async (response) => {
-        response = `{
-          "aasasasa": "别此真情议同得"
-        }`
         const resLength = _.size(response);
         response = String(response);
 
@@ -315,7 +312,6 @@ module.exports.ConnectAndSendMessage = function (data) {
                         "result": "成功"
                       })
                     } catch (e) {
-                      console.log(e)
                       _assert_script.push({
                         "status": "error",
                         "expect": _assert_title,
