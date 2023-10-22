@@ -5,7 +5,7 @@ const _ = require("lodash"),
   chai = require('chai'),
   jsonpath = require('jsonpath'),
   x2js = require('x2js');
-
+console.log(jsonpath.value({ aasasasa: '别此真情议同得' }, "$.aasasasa"), 77777)
 module.exports.ConnectAndSendMessage = function (data) {
   const { option, test_events } = data;
 
@@ -137,6 +137,9 @@ module.exports.ConnectAndSendMessage = function (data) {
 
       // 收到反馈数据
       socketClient.on("data", async (response) => {
+        response = `{
+          "aasasasa": "别此真情议同得"
+        }`
         const resLength = _.size(response);
         response = String(response);
 
@@ -285,7 +288,8 @@ module.exports.ConnectAndSendMessage = function (data) {
                             res_obj = response;
                           }
 
-                          _expect_data = _assert_func(jsonpath.value(res_obj, JSON.stringify(item?.data?.expression?.path)))
+                          _expect_data = _assert_func(jsonpath.value(res_obj, item?.data?.expression?.path))
+
                           break;
                         case 'responseXml':
                         case 'responseText':
@@ -295,7 +299,7 @@ module.exports.ConnectAndSendMessage = function (data) {
                           _expect_data = resLength;
                           break;
                       }
-                      
+
                       let _chai_str = '';
                       if (!_.isNull(_assert_value)) {
                         _chai_str = `chai.expect(${JSON.stringify(_expect_data)}).to.${_assert_condition}(${JSON.stringify(_assert_value)})`;
