@@ -113,6 +113,9 @@ module.exports.ConnectAndSendMessage = function (data) {
                     case '\\\\':
                       writeData = _.join([writeData, "\\"], '')
                       break;
+                    case '\\r\\n':
+                      writeData = _.join([writeData, "\r\n"], '')
+                      break;
                     default:
                       writeData = _.join([writeData, String(item?.option)], '')
                       break;
@@ -176,9 +179,14 @@ module.exports.ConnectAndSendMessage = function (data) {
                     case '\\\\':
                       response = _.trim(response, "\\")
                       break;
+                    case '\\r\\n':
+                      response = _.trim(response, "\r\n")
+                      break;
                     default:
                       break;
                   }
+
+                  response = _.trim(response, "\n");
                 }
 
                 break;
@@ -293,7 +301,7 @@ module.exports.ConnectAndSendMessage = function (data) {
                           try {
                             _expect_data = xpath.select(String(item?.data?.expression?.path), new dom().parseFromString(String(response), 'text/xml'));
                           } catch (e) { }
-                          
+
                           break;
                         case 'responseText':
                           _expect_data = response;
@@ -336,6 +344,7 @@ module.exports.ConnectAndSendMessage = function (data) {
             message: "success",
             request: serverHost,
             response: {
+              rawBody: response,
               raw: response,
               length: resLength,
             },
