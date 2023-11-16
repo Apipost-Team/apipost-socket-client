@@ -45,7 +45,7 @@ module.exports.ConnectAndSendMessage = function (data) {
         ? _.get(targetItem, "request.body.mode")
         : "json";
       const msgContent =
-        msgType === "iso8583"
+        ["iso8583", "delimiter_message", "fixed_message"].indexOf(msgType) > -1
           ? _.get(targetItem, `request.body.parameter`)
           : _.get(targetItem, `request.body.raw`);
 
@@ -62,20 +62,70 @@ module.exports.ConnectAndSendMessage = function (data) {
       // 连接并发送
       socketClient.connect(serverHost.port, serverHost.host, () => {
         let writeData = "";
-
+        console.log(msgType, `msgType`)
         switch (msgType) {
           case "iso8583":
             try {
               const isoMsg = {};
 
-              if (_.isArray(msgContent)) {
-                _.forEach(msgContent, (item) => {
+              _.forEach(msgContent, (item) => {
+                if (item?.is_checked > 0) {
                   isoMsg[String(item?.field)] = item?.value;
-                });
-              }
+                }
+              });
 
               writeData = new Iso_8583(isoMsg).getBufferMessage();
             } catch (e) { }
+            break;
+          case 'fixed_message': // 定长报文
+            _.forEach(msgContent, function (item) {
+              if (item?.is_checked > 0) {
+                let delimiter = '';
+                if (item?.fixed_rules?.content_type == 'custom') {
+                  delimiter = item?.fixed_rules?.custom;
+                } else {
+                  delimiter = _.get({
+                    "1": ",",
+                    "2": "|",
+                    "3": ";",
+                    "4": "\t",
+                    "5": " ",
+                    "6": ":",
+                    "7": "\n",
+                    "8": "\r",
+                    "9": "\r\n"
+                  }, item?.fixed_rules?.common);
+                }
+                if (item?.fixed_rules?.fill_type == 'left') {
+                  writeData += _.padStart(item?.value, Number(item?.fixed_rules?.length), delimiter);
+                } else {
+                  writeData += _.padEnd(item?.value, Number(item?.fixed_rules?.length), delimiter);
+                }
+              }
+            });
+            break;
+          case 'delimiter_message': // 分隔符报文
+            _.forEach(msgContent, function (item) {
+              if (item?.is_checked > 0) {
+                let delimiter = _.get({
+                  "1": ",",
+                  "2": "|",
+                  "3": ";",
+                  "4": "\t",
+                  "5": " ",
+                  "6": ":",
+                  "7": "\n",
+                  "8": "\r",
+                  "9": "\r\n"
+                }, item?.delimiter_rules);
+
+                if (_.isUndefined(delimiter)) {
+                  delimiter = ''
+                }
+
+                writeData += `${item?.value}${delimiter}`;
+              }
+            });
             break;
           default:
             writeData = msgContent;
