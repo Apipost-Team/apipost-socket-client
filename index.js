@@ -62,7 +62,6 @@ module.exports.ConnectAndSendMessage = function (data) {
       // 连接并发送
       socketClient.connect(serverHost.port, serverHost.host, () => {
         let writeData = "";
-        console.log(msgType, `msgType`)
         switch (msgType) {
           case "iso8583":
             try {
@@ -96,10 +95,17 @@ module.exports.ConnectAndSendMessage = function (data) {
                     "9": "\r\n"
                   }, item?.fixed_rules?.common);
                 }
-                if (item?.fixed_rules?.fill_type == 'left') {
-                  writeData += _.padStart(item?.value, Number(item?.fixed_rules?.length), delimiter);
+
+                if (_.size(item?.value) < Number(item?.fixed_rules?.length)) {
+                  if (item?.fixed_rules?.fill_type == 'left') {
+                    writeData += _.padStart(item?.value, Number(item?.fixed_rules?.length), delimiter);
+                  } else {
+                    writeData += _.padEnd(item?.value, Number(item?.fixed_rules?.length), delimiter);
+                  }
+                } else if (_.size(item?.value) > Number(item?.fixed_rules?.length)) {
+                  writeData += String(item?.value).substring(0, Number(item?.fixed_rules?.length))
                 } else {
-                  writeData += _.padEnd(item?.value, Number(item?.fixed_rules?.length), delimiter);
+                  writeData += item?.value;
                 }
               }
             });
