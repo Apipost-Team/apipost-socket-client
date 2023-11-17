@@ -56,11 +56,35 @@ module.exports.ConnectAndSendMessage = function (data) {
         },
       });
 
+
+      // 获取超时时间
+      const timeout = Number(_.get(_.find(option?.collection, (item) => {
+        return item.target_id === targetItem?.parent_id;
+      }), 'request.timeout'))
+
       // 获取连接客户端
       const socketClient = new net.Socket();
 
+      if (timeout > 0) {
+        socketClient.setTimeout(timeout * 1000);
+      }
+      process.on('uncaughtException', (err) => {
+        console.error('有一个未捕获的异常:', err);
+      });
+      // 错误回调
+      socketClient.on('error', (err) => {
+        reject({
+          target_id: targetItem?.target_id,
+          status: "error",
+          message: String(err),
+          request: serverHost,
+          response: {},
+          assert: [],
+        });
+      });
+
       // 连接并发送
-      socketClient.connect(serverHost.port, serverHost.host, () => {
+      socketClient.connect(serverHost.port, serverHost.host, (error) => {
         let writeData = "";
         switch (msgType) {
           case "iso8583":
@@ -422,16 +446,20 @@ module.exports.ConnectAndSendMessage = function (data) {
 
       socketClient.on("close", () => { });
 
-      // 错误回调
-      socketClient.on("error", (err) => {
+      // 当socket超时，这个事件会被触发
+      socketClient.on('timeout', () => {
         reject({
           target_id: targetItem?.target_id,
           status: "error",
-          message: String(err),
-          request: serverHost,
+          message: `当前TCP连接超时（当前超时时间设置为 ${timeout} 秒，您可以在设置中进行设置）。`,
+          request: {},
           response: {},
           assert: [],
         });
+
+        try {
+          socketClient.end(); // 结束socket，因为它已经超时了
+        } catch (e) { }
       });
     }
   });
