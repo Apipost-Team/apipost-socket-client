@@ -108,16 +108,19 @@ module.exports.ConnectAndSendMessage = function (data) {
                   delimiter = item?.fixed_rules?.custom;
                 } else {
                   delimiter = _.get({
-                    "1": ",",
-                    "2": "|",
-                    "3": ";",
-                    "4": "\t",
-                    "5": " ",
-                    "6": ":",
-                    "7": "\n",
-                    "8": "\r",
-                    "9": "\r\n"
-                  }, item?.fixed_rules?.common);
+                    "1": " ",
+                    "2": "0",
+                    "3": "#",
+                    "4": "+",
+                    "5": ",",
+                    "6": "|",
+                    "7": ";",
+                    "8": "\t",
+                    "9": ":",
+                    "10": "\n",
+                    "11": "\r",
+                    "12": "\r\n"
+                  }, String(item?.fixed_rules?.common));
                 }
 
                 if (_.size(item?.value) < Number(item?.fixed_rules?.length)) {
@@ -147,7 +150,7 @@ module.exports.ConnectAndSendMessage = function (data) {
                   "7": "\n",
                   "8": "\r",
                   "9": "\r\n"
-                }, item?.delimiter_rules);
+                }, String(item?.delimiter_rules));
 
                 if (_.isUndefined(delimiter)) {
                   delimiter = ''
