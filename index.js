@@ -93,11 +93,11 @@ module.exports.ConnectAndSendMessage = function (data) {
 
               _.forEach(msgContent, (item) => {
                 if (item?.is_checked > 0) {
-                  isoMsg[String(item?.field)] = item?.value;
+                  isoMsg[_.trim(String(item?.field))] = item?.value;
                 }
               });
 
-              writeData = new Iso_8583(isoMsg).getBufferMessage();
+              writeData = new Iso_8583({ isoMsg }).getBufferMessage();
             } catch (e) { }
             break;
           case 'fixed_message': // 定长报文
@@ -139,7 +139,7 @@ module.exports.ConnectAndSendMessage = function (data) {
             break;
           case 'delimiter_message': // 分隔符报文
             _.forEach(msgContent, function (item) {
-              if (item?.is_checked > 0) {
+              if (item?.is_checked > 0 && item?.value != '') {
                 let delimiter = _.get({
                   "1": ",",
                   "2": "|",
