@@ -96,8 +96,19 @@ module.exports.ConnectAndSendMessage = function (data) {
                   isoMsg[_.trim(String(item?.field))] = item?.value;
                 }
               });
+              
+              writeData = new Iso_8583(isoMsg).getBufferMessage();
 
-              writeData = new Iso_8583({ isoMsg }).getBufferMessage();
+              if(_.isString(_.get(writeData, 'error'))){
+                reject({
+                  target_id: targetItem?.target_id,
+                  status: "error",
+                  message: `ISO8583 请求数据格式不符合规范。${JSON.stringify(isoMsg)}`,
+                  request: serverHost,
+                  response: {},
+                  assert: [],
+                });
+              }
             } catch (e) { }
             break;
           case 'fixed_message': // 定长报文
@@ -230,6 +241,7 @@ module.exports.ConnectAndSendMessage = function (data) {
         try {
           switch (msgType) {
             case "iso8583":
+              console.log(response,`iso8583iso8583iso8583iso8583`)
               response = new Iso_8583(response);
               break;
           }
