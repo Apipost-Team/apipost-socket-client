@@ -4,6 +4,7 @@ const _ = require("lodash"),
   { parseString } = require('xml2js'),
   chai = require('chai'),
   jsonpath = require('jsonpath'),
+  dom = require('@xmldom/xmldom').DOMParser,
   xpath = require('xpath'),// for 7.2.3
   x2js = require('x2js');
 
@@ -394,7 +395,7 @@ module.exports.ConnectAndSendMessage = function (data) {
                           break;
                         case 'responseXml':
                           try {
-                            _expect_data = xpath.select(String(item?.data?.expression?.path), new dom().parseFromString(String(response), 'text/xml'));
+                            _expect_data = String(xpath.select(String(item?.data?.expression?.path), new dom().parseFromString(String(response), 'text/xml')));
                           } catch (e) { }
 
                           break;
